@@ -1,16 +1,18 @@
-![OrgChart](http://dabeng.github.io/OrgChart/img/heading.svg)
+![OrgChart](http://dabeng.github.io/OrgChart/img/heading.png)
 
-# Read this in other languages: [简体中文](https://github.com/dabeng/OrgChart/blob/master/README.zh-cn.md), [繁體中文](https://github.com/dabeng/OrgChart/blob/master/README.zh-tw.md)
+# [简体文档](https://github.com/dabeng/OrgChart/blob/master/README.zh-cn.md), [繁體文档](https://github.com/dabeng/OrgChart/blob/master/README.zh-tw.md)
 
 # [ES6 Version](http://github.com/dabeng/OrgChart.js)
 # [Web Components Version](http://github.com/dabeng/OrgChart-Webcomponents)
 # [Vue.js Version](https://github.com/dabeng/vue-orgchart)
-# [Angular Version -- the most space-saving solution](https://github.com/dabeng/ng-orgchart)
+# [Angular Version](https://github.com/dabeng/ng-orgchart)
 # [React Version](https://github.com/dabeng/react-orgchart)
 
 ## Foreword
 First of all, thanks a lot for [wesnolte](https://github.com/wesnolte)'s great work:blush: -- [jOrgChart](https://github.com/wesnolte/jOrgChart). The thought that using nested tables to build out the tree-like orgonization chart is amazing. This idea is more simple and direct than its counterparts based on svg
-Unfortunately, it's long time not to see the update of jOrgChart. on the other hand, I got some interesting ideas to add, so I choose to create a new repo. **Since version 3.0, we use nested ul to construct tree-like chart instead of nested table.**
+Unfortunately, it's long time not to see the update of jOrgChart. on the other hand, I got some interesting ideas to add, so I choose to create a new repo. 
+- Since version 3.0, we use nested ul to construct tree-like chart instead of nested table.
+- Since version 4.0, users build up the ajax datasoure by themselves.
 
 ## Features
 - Supports both local data and remote data (JSON).
@@ -21,7 +23,7 @@ Unfortunately, it's long time not to see the update of jOrgChart. on the other h
 - Supports exporting chart as a picture or pdf document.
 - Supports pan and zoom.
 - Allows user to customize the internal structure for every node.
-- Users can adopt multiple solutions to build up a huge organization chart(please refer to multiple-layers or hybrid layout sections).
+- Users can adopt multiple solutions to build up a huge organization chart(please refer hybrid layout sections).
 - touch-enabled plugin for mobile device.
 
 ## CDN
@@ -45,11 +47,11 @@ $ npm install orgchart
 require('orgchart') will load orgchart plugin onto the jQuery object. The orgchart module itself does not export anything.
 
 ## [Demos on github pages](https://dabeng.github.io/OrgChart/)
-## [Demos based on nested table](https://codepen.io/collection/AWxGVb/)
-## [Demos based on nested ul](https://codepen.io/collection/nWqvzY)
+## [Demos based on nested ul](https://codepen.io/collection/xKmPeK)
+## [Demos based on nested table](https://codepen.io/collection/AWxGVb/) (obsolete)
 
 ### online demos
-- [using ul datasource](https://dabeng.github.io/OrgChart/ul-datasource.html)(this feature comes from [Tobyee's good idea:blush:](https://github.com/dabeng/OrgChart/issues/1))
+- [using ul datasource](https://dabeng.github.io/OrgChart/ul-datasource.html)(this feature comes from [Tobyee's good idea :blush:](https://github.com/dabeng/OrgChart/issues/1))
 
 - [using local datasource](https://dabeng.github.io/OrgChart/local-datasource.html)
 
@@ -71,7 +73,9 @@ require('orgchart') will load orgchart plugin onto the jQuery object. The orgcha
 
 - [I wanna load data on-demand](https://dabeng.github.io/OrgChart/ondemand-loading-data.html)
 
-Note: when users use ajaxURL option to build orghchart, they must use json datasource(both local and remote are OK) and set the relationship property of datasource by themselves. All of these staff are used to generate the correct expanding/collapsing arrows for nodes.
+![ondemand-loading-data](http://dabeng.github.io/OrgChart/img/ondemand-loading-data.gif)
+
+**Note:** users use should set the relationship property of datasource by themselves. All of these staff are used to generate the correct expanding/collapsing arrows for nodes.
 
 - [I wanna customize the structure of node](https://dabeng.github.io/OrgChart/option-createNode.html)
 
@@ -86,6 +90,12 @@ Here, we need the help from [html2canvas](https://github.com/niklasvh/html2canva
 (2) if your OS is windows, please check your display scaling settings. For the perfact exported picture, you'd better adjust "Change the size of text, apps, and other items" to 100%.(thanks for [sayamkrai](https://github.com/sayamkrai)'s [exploration](https://github.com/dabeng/OrgChart/issues/152))
 
 (3) Besides, if you wanna export a pdf format or your orgchart includes picture, you have to introduce [jspdf](https://github.com/MrRio/jsPDF) and set "exportFileextension" option to "pdf".
+
+- [I wanna export the orgchart with nodes containing pictures](https://dabeng.github.io/OrgChart/export-chart-with-pictures.html)
+
+You need to set crossorigin to anonymous for your img tags.
+
+![export-chart-with-pictures](http://dabeng.github.io/OrgChart/img/export-chart-with-pictures.png)
 
 - [I wanna itegrate organization chart with geographic information](https://dabeng.github.io/OrgChart/integrate-map.html)
 
@@ -109,10 +119,6 @@ That's where getHierarchy() comes in.
 
 It's a so easy task, we just need to append id or className property to node data.
 
-- [I want a multiple-layers chart](https://dabeng.github.io/OrgChart/multiple-layers.html)
-
-In fact, this is a wonderful solution to display a orgchart which includes a huge number of node data.
-
 - [I want a hybrid(horizontal + vertical) chart](https://dabeng.github.io/OrgChart/vertical-level.html)
 
 This feature is inspired by the issues([Aligning Children Vertical](https://github.com/dabeng/OrgChart/issues/46), [Hybrid(horizontal + vertical) OrgChart](https://github.com/dabeng/OrgChart/issues/61)). Thank [mfahadi](https://github.com/mfahadi) and [Destructrix](https://github.com/Destructrix) for their constructive suggestions:blush: Special thanks to [tedliang](https://github.com/tedliang) for his wonderful hybrid mode solution.
@@ -132,6 +138,32 @@ It's not a big deal. You just turn to the method init().
 - [I want to use complex template to customize the internal structure of every node](https://dabeng.github.io/OrgChart/custom-template.html)
 
 No problem. With the help of ES6 Template literals, we can customize the any complex node structure rather than the common title and content sections.
+
+- [I want to position node in specific level. How can i do that ?](https://dabeng.github.io/OrgChart/level-offset.html)
+
+![level-offset](http://dabeng.github.io/OrgChart/img/level-offset.png)
+
+You need the solution based on new datasource structure with **levelOffset data prop** + callback createNode() + CSS custom properties(variables)
+
+- [I want a orgchart with nodes of different widths](https://dabeng.github.io/OrgChart/nodes-of-different-widths.html)
+
+![nodes-of-different-widths](http://dabeng.github.io/OrgChart/img/nodes-of-different-widths.png)
+
+- [I want to drag&drop in the hybrid chart](https://dabeng.github.io/OrgChart/drag-drop-hybrid-chart.html)
+
+- [ I only want specific children of a certain branch of the chart to be displayed as vertical. Is it possible to set VerticalLevel by data?](https://dabeng.github.io/OrgChart/data-prop-hybrid.html)
+
+![data-prop-hybrid](http://dabeng.github.io/OrgChart/img/data-prop-hybrid.png)
+
+**hybrid data property** is designed for your use case. Once node data includes a "hybrid" prop with truthy value, its descendant nodes will be arranged vertically.
+
+- [I want to replace built-in icons with Font Awesome icons](https://dabeng.github.io/OrgChart/custom-icons.html)
+
+- [ I want to alternate layout if children is too many](https://dabeng.github.io/OrgChart/data-prop-compact.html)
+
+![data-prop-compact](http://dabeng.github.io/OrgChart/img/data-prop-compact.png)
+
+**compact data property** is designed for your use case. Once node data includes a "compact" prop with truthy value, itself and its descendant nodes will be arranged with compact mode.
 
 ### how to start up demos locally
 
@@ -180,6 +212,29 @@ var oc = $('#chartContainerId').orgchart(options);
 };
 ```
 
+### Data Props
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Type</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>hybrid</td>
+      <td>truthy value</td>
+      <td>nodes will be arranged vertically if this property is set to true</td>
+    </tr>
+    <tr>
+      <td>compact</td>
+      <td>truthy value</td>
+      <td>node will be rendered with compact mode if this property is set to true</td>
+    </tr>
+  </tbody>
+</table>
+
 ### Options
 <table>
   <thead>
@@ -194,10 +249,10 @@ var oc = $('#chartContainerId').orgchart(options);
   <tbody>
     <tr>
       <td>data</td>
-      <td>json or string</td>
+      <td>json or jquery object</td>
       <td>yes</td>
       <td></td>
-      <td>datasource usded to build out structure of orgchart. It could be a json object or a string containing the URL to which the ajax request is sent.</td>
+      <td>datasource usded to build out structure of orgchart. It could be a json object or a jquery object(ul element)</td>
     </tr>
     <tr>
       <td>pan</td>
@@ -249,13 +304,6 @@ var oc = $('#chartContainerId').orgchart(options);
       <td>Once enable this option, users can show/hide left/right sibling nodes respectively by clicking left/right arrow.</td>
     </tr>
     <tr>
-      <td>ajaxURL</td>
-      <td>json</td>
-      <td>no</td>
-      <td></td>
-      <td>It inclueds four properites -- parent, children, siblings, families(ask for parent node and siblings nodes). As their names imply, different propety provides the URL to which ajax request for different nodes is sent.</td>
-    </tr>
-    <tr>
       <td>visibleLevel</td>
       <td>positive integer</td>
       <td>no</td>
@@ -273,7 +321,7 @@ var oc = $('#chartContainerId').orgchart(options);
       <td>parentNodeSymbol</td>
       <td>string</td>
       <td>no</td>
-      <td>"oci-leader"</td>
+      <td>"oci-menu"</td>
       <td>Using your own icon to imply that the node has child nodes.</td>
     </tr>
     <tr>
@@ -358,7 +406,36 @@ var oc = $('#chartContainerId').orgchart(options);
       <td>function</td>
       <td>no</td>
       <td></td>
-      <td>It can often be useful to know when your table has fully been initialised, data loaded and rendered, particularly when using an ajax data source. It receives one parament: "$chart" stands for jquery object of initialised chart.</td>
+      <td>It can often be useful to know when your table has fully been initialised, data loaded and rendered. It receives one parament: "$chart" stands for jquery object of initialised chart.</td>
+    </tr>
+    <tr>
+      <td>icons</td>
+      <td>json</td>
+      <td>no</td>
+      <td></td>
+      <td>Users can use this option to plug Font Awesome icons back in.
+        <pre>
+          <code>
+'icons': {
+  'theme': 'fa-solid fa-sm',
+  'parentNode': 'fa-user-tie',
+  'expandToUp': 'fa-angles-up',
+  'collapseToDown': 'fa-angles-down',
+  'collapseToLeft': 'fa-angles-left',
+  'expandToRight': 'fa-angles-right',
+  'collapsed': 'fa-circle-plus',
+  'expanded': 'fa-circle-minus'
+}
+          </code>
+        </pre>
+      </td>
+    </tr>
+    <tr>
+      <td>compact</td>
+      <td>function</td>
+      <td>no</td>
+      <td></td>
+      <td>This callback is used to determine current node is wether rendered with compact mode. The node's data is passed in as a parameter. <b>Note:</b>The option "compact" has a higher priority than data prop "compact".</td>
     </tr>
   </tbody>
 </table>
@@ -371,6 +448,66 @@ Embeds an organization chart in designated container. Accepts an options object 
 
 #### init(newOptions)
 It's the useful way when users want to re-initialize or refresh orgchart based on new options or reload new data.
+
+#### addAncestors(data, parentId)
+Adds the ancestors for current orgchart.
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Type</th>
+      <th>Required</th>
+      <th>Default</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>data</td>
+      <td>json</td>
+      <td>yes</td>
+      <td></td>
+      <td>datasource for building ancestors</td>
+    </tr>
+    <tr>
+      <td>parentId</td>
+      <td>string</td>
+      <td>yes</td>
+      <td></td>
+      <td>append current orgchart to the parent node with parentId</td>
+    </tr>
+  </tbody>
+</table>
+
+#### addDescendants(data, $parent)
+Adds the descendants for specified parent node.
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Type</th>
+      <th>Required</th>
+      <th>Default</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>data</td>
+      <td>array</td>
+      <td>yes</td>
+      <td></td>
+      <td>datasource for building descendants</td>
+    </tr>
+    <tr>
+      <td>$parent</td>
+      <td>jquery object</td>
+      <td>yes</td>
+      <td></td>
+      <td>append descendants to the $parent node</td>
+    </tr>
+  </tbody>
+</table>
 
 #### addParent(data)
 Adds parent node(actullay it's always root node) for current orgchart.
@@ -685,6 +822,63 @@ This method returns you the nodes related to the specified node.
   </tr>
 </table>
 
+#### getParent($node)
+This method returns you the parent node of the specified node.
+<table>
+  <tr>
+    <th>Name</th>
+    <th>Type</th>
+    <th>Required</th>
+    <th>Default</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td>$node</td>
+    <td>JQuery Object</td>
+    <td>Yes</td>
+    <td></td>
+    <td>It's the desired JQuery Object to know its parent node</td>
+  </tr>
+</table>
+
+#### getSiblings($node)
+This method returns you the sibling nodes of the specified node.
+<table>
+  <tr>
+    <th>Name</th>
+    <th>Type</th>
+    <th>Required</th>
+    <th>Default</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td>$node</td>
+    <td>JQuery Object</td>
+    <td>Yes</td>
+    <td></td>
+    <td>It's the desired JQuery Object to know its sibling nodes</td>
+  </tr>
+</table>
+
+#### getChildren($node)
+This method returns you the child nodes of the specified node.
+<table>
+  <tr>
+    <th>Name</th>
+    <th>Type</th>
+    <th>Required</th>
+    <th>Default</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td>$node</td>
+    <td>JQuery Object</td>
+    <td>Yes</td>
+    <td></td>
+    <td>It's the desired JQuery Object to know its child nodes</td>
+  </tr>
+</table>
+
 #### setChartScale($chart, newScale)
 This method helps you set the specified chart with new scale.
 <table>
@@ -756,11 +950,6 @@ This method allow you to export current orgchart as png or pdf file.
       <td>init.orgchart</td>
       <td>chart</td>
       <td>Initialisation complete event - fired when Organization Chart has been fully initialised and data loaded.</td>
-    </tr>
-    <tr>
-      <td>load-[relation].orgchart</td>
-      <td></td>
-      <td>This event is fired on a node after the onDemand loading completes.<b>[relation]</b> can be either parent, children or siblings.</td>
     </tr>
     <tr>
       <td>show-[relation].orgchart</td>

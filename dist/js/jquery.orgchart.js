@@ -21,6 +21,19 @@
     this.$chartContainer = $(elem);
     this.opts = opts;
     this.defaultOptions = {
+      'icons': {
+        'theme': 'oci',
+        'parentNode': 'oci-menu',
+        'expandToUp': 'oci-chevron-up',
+        'collapseToDown': 'oci-chevron-down',
+        'collapseToLeft': 'oci-chevron-left',
+        'expandToRight': 'oci-chevron-right',
+        'backToCompact': 'oci-corner-top-left',
+        'backToLoose': 'oci-corner-bottom-right',
+        'collapsed': 'oci-plus-square',
+        'expanded': 'oci-minus-square',
+        'spinner': 'oci-spinner'
+      },
       'nodeTitle': 'name',
       'nodeId': 'id',
       'toggleSiblingsResp': false,
@@ -30,7 +43,6 @@
       'exportButtonName': 'Export',
       'exportFilename': 'OrgChart',
       'exportFileextension': 'png',
-      'parentNodeSymbol': 'oci-leader',
       'draggable': false,
       'direction': 't2b',
       'pan': false,
@@ -64,28 +76,17 @@
         this.triggerInitEvent();
       }
       var $root = $chart.append($('<ul class="nodes"><li class="hierarchy"></li></ul>')).find('.hierarchy');
-      if ($.type(data) === 'object') {
+
         if (data instanceof $) { // ul datasource
           this.buildHierarchy($root, this.buildJsonDS(data.children()), 0, this.options);
         } else { // local json datasource
-          this.buildHierarchy($root, this.options.ajaxURL ? data : this.attachRel(data, '00'));
+          if (data.relationship) {
+            this.buildHierarchy($root, data);
+          } else {
+            this.buildHierarchy($root, this.attachRel(data, '00'));
+          }
         }
-      } else {
-        $chart.append('<i class="oci oci-spinner spinner"></i>');
-        $.ajax({
-          'url': data,
-          'dataType': 'json'
-        })
-        .done(function(data, textStatus, jqXHR) {
-          that.buildHierarchy($root, that.options.ajaxURL ? data : that.attachRel(data, '00'), 0, that.options);
-        })
-        .fail(function(jqXHR, textStatus, errorThrown) {
-          console.log(errorThrown);
-        })
-        .always(function() {
-          $chart.children('.spinner').remove();
-        });
-      }
+
       $chartContainer.append($chart);
 
       // append the export button
@@ -103,6 +104,20 @@
 
       return this;
     },
+    handleCompactNodes: function () {
+      // caculate the compact nodes' level which is used to add different styles
+      this.$chart.find('.node.compact')
+        .each((index, node) => {
+          $(node).addClass($(node).parents('.compact').length % 2 === 0 ? 'even' : 'odd');
+        }); // the following code snippets is used to add direction arrows for the most top compact node, however the styles is not adjusted correctly
+        // .filter((index, node) => !$(node).parent().is('.compact'))
+        // .each((index, node) => {
+        //   $(node).append(`<i class="edge verticalEdge topEdge ${this.options.icons.theme}"></i>`);
+        //   if (this.getSiblings($(node)).length) {
+        //     $(node).append(`<i class="edge horizontalEdge rightEdge ${this.options.icons.theme}"></i><i class="edge horizontalEdge leftEdge ${this.options.icons.theme}"></i>`);
+        //   }
+        // });
+    },
     //
     triggerInitEvent: function () {
       var that = this;
@@ -112,6 +127,7 @@
         for (var i = 0; i < mutations.length; i++) {
           for (var j = 0; j < mutations[i].addedNodes.length; j++) {
             if (mutations[i].addedNodes[j].classList.contains('orgchart')) {
+              that.handleCompactNodes();
               if (that.options.initCompleted && typeof that.options.initCompleted === 'function') {
                 that.options.initCompleted(that.$chart);
               }
@@ -123,10 +139,6 @@
         }
       });
       mo.observe(this.$chartContainer[0], { childList: true });
-    },
-    triggerLoadEvent: function ($target, rel) {
-      var initEvent = $.Event('load-' + rel +'.orgchart');
-      $target.trigger(initEvent);
     },
     triggerShowEvent: function ($target, rel) {
       var initEvent = $.Event('show-' + rel + '.orgchart');
@@ -367,12 +379,22 @@
       });
       return subObj;
     },
-    //
+    // process datasource and add necessary information
     attachRel: function (data, flags) {
       var that = this;
       data.relationship = flags + (data.children && data.children.length > 0 ? 1 : 0);
+      if (this.options?.compact?.constructor === Function && this.options.compact(data)) {
+        data.compact = true;
+      }
       if (data.children) {
         data.children.forEach(function(item) {
+          if (data.hybrid || data.vertical) { // identify all the descendant nodes except the root node of hybrid structure
+            item.vertical = true;
+          } else if (data.compact && item.children) { // identify all the compact ancestor nodes
+            item.compact = true;
+          } else if (data.compact && !item.children) { // identify all the compact descendant nodes
+            item.associatedCompact = true;
+          }
           that.attachRel(item, '1' + (data.children.length > 1 ? 1 : 0));
         });
       }
@@ -471,6 +493,15 @@
       }
       return { 'exist': false, 'visible': false };
     },
+    getParent: function ($node) {
+      return this.getRelatedNodes($node, 'parent');
+    },
+    getChildren: function ($node) {
+      return this.getRelatedNodes($node, 'children');
+    },
+    getSiblings: function ($node) {
+      return this.getRelatedNodes($node, 'siblings');
+    },
     // find the related nodes
     getRelatedNodes: function ($node, relation) {
       if (!$node || !($node instanceof $) || !$node.is('.node')) {
@@ -536,6 +567,9 @@
     isVisibleNode: function (index, elem) {
       return this.getNodeState($(elem)).visible;
     },
+    isCompactDescendant: function (index, elem) {
+      return $(elem).parent().is('.node.compact');
+    },
     // do some necessary cleanup tasks when hide animation is finished
     hideChildrenEnd: function (event) {
       var $node = event.data.node;
@@ -550,13 +584,13 @@
       $node.closest('.hierarchy').addClass('isChildrenCollapsed');
       var $lowerLevel = $node.siblings('.nodes');
       this.stopAjax($lowerLevel);
-      var $animatedNodes = $lowerLevel.find('.node').filter(this.isVisibleNode.bind(this));
+      var $animatedNodes = $lowerLevel.find('.node').filter(this.isVisibleNode.bind(this)).not(this.isCompactDescendant.bind(this));
       var isVerticalDesc = $lowerLevel.is('.vertical');
       if (!isVerticalDesc) {
         $animatedNodes.closest('.hierarchy').addClass('isCollapsedDescendant');
       }
       if ($lowerLevel.is('.vertical') || $lowerLevel.find('.vertical').length) {
-        $animatedNodes.find('.oci-minus-square').removeClass('oci-minus-square').addClass('oci-plus-square');
+        $animatedNodes.find(this.options.icons.expanded).removeClass(this.options.icons.expanded).addClass(this.options.icons.collapsed);
       }
       this.repaint($animatedNodes.get(0));
       $animatedNodes.addClass('sliding slide-up').eq(0).one('transitionend', { 'animatedNodes': $animatedNodes, 'lowerLevel': $lowerLevel, 'node': $node }, this.hideChildrenEnd.bind(this));
@@ -588,13 +622,21 @@
     },
     //
     hideSiblingsEnd: function (event) {
+      var that = this;
       var $node = event.data.node;
       var $nodeContainer = event.data.nodeContainer;
       var direction = event.data.direction;
       var $siblings = direction ? (direction === 'left' ? $nodeContainer.prevAll(':not(.hidden)') : $nodeContainer.nextAll(':not(.hidden)')) : $nodeContainer.siblings();
       event.data.animatedNodes.removeClass('sliding');
       $siblings.find('.node:gt(0)').filter(this.isVisibleNode.bind(this))
-        .removeClass('slide-left slide-right').addClass('slide-up');
+        .removeClass('slide-left slide-right')
+        .addClass(function() {
+          if (that.options.compact) {
+            return '';
+          } else {
+            return 'slide-up';
+          }
+        });
       $siblings.find('.nodes, .vertical').addClass('hidden')
         .end().addClass('hidden');
 
@@ -635,7 +677,7 @@
       event.data.visibleNodes.removeClass('sliding');
       if (this.isInAction($node)) {
         this.switchHorizontalArrow($node);
-        $node.children('.topEdge').removeClass('oci-chevron-up').addClass('oci-chevron-down');
+        $node.children('.topEdge').removeClass(this.options.icons.expandToUp).addClass(this.options.icons.collapseToDown);
       }
     },
     //
@@ -690,7 +732,7 @@
       }
 
       $edge.addClass('hidden');
-      $edge.parent().append('<i class="oci oci-spinner spinner"></i>')
+      $edge.parent().append(`<i class="${this.options.icons.theme} ${this.options.icons.spinner} spinner"></i>`)
         .children().not('.spinner').css('opacity', 0.2);
       $chart.data('inAjax', true);
       $('.oc-export-btn').prop('disabled', true);
@@ -707,11 +749,16 @@
     },
     // whether the cursor is hovering over the node
     isInAction: function ($node) {
-      return $node.children('.edge').attr('class').indexOf('oci-') > -1 ? true : false;
+      return [
+        this.options.icons.expandToUp,
+        this.options.icons.collapseToDown,
+        this.options.icons.collapseToLeft,
+        this.options.icons.expandToRight
+      ].some((icon) => $node.children('.edge').attr('class').indexOf(icon) > -1);
     },
     //
     switchVerticalArrow: function ($arrow) {
-      $arrow.toggleClass('oci-chevron-up').toggleClass('oci-chevron-down');
+      $arrow.toggleClass(`${this.options.icons.expandToUp} ${this.options.icons.collapseToDown}`);
     },
     //
     switchHorizontalArrow: function ($node) {
@@ -720,24 +767,24 @@
         var $prevSib = $node.parent().prev();
         if ($prevSib.length) {
           if ($prevSib.is('.hidden')) {
-            $node.children('.leftEdge').addClass('oci-chevron-left').removeClass('oci-chevron-right');
+            $node.children('.leftEdge').addClass(opts.icons.collapseToLeft).removeClass(opts.icons.expandToRight);
           } else {
-            $node.children('.leftEdge').addClass('oci-chevron-right').removeClass('oci-chevron-left');
+            $node.children('.leftEdge').addClass(opts.icons.expandToRight).removeClass(opts.icons.collapseToLeft);
           }
         }
         var $nextSib = $node.parent().next();
         if ($nextSib.length) {
           if ($nextSib.is('.hidden')) {
-            $node.children('.rightEdge').addClass('oci-chevron-right').removeClass('oci-chevron-left');
+            $node.children('.rightEdge').addClass(opts.icons.expandToRight).removeClass(opts.icons.collapseToLeft);
           } else {
-            $node.children('.rightEdge').addClass('oci-chevron-left').removeClass('oci-chevron-right');
+            $node.children('.rightEdge').addClass(opts.icons.collapseToLeft).removeClass(opts.icons.expandToRight);
           }
         }
       } else {
         var $sibs = $node.parent().siblings();
         var sibsVisible = $sibs.length ? !$sibs.is('.hidden') : false;
-        $node.children('.leftEdge').toggleClass('oci-chevron-right', sibsVisible).toggleClass('oci-chevron-left', !sibsVisible);
-        $node.children('.rightEdge').toggleClass('oci-chevron-left', sibsVisible).toggleClass('oci-chevron-right', !sibsVisible);
+        $node.children('.leftEdge').toggleClass(opts.icons.expandToRight, sibsVisible).toggleClass(opts.icons.collapseToLeft, !sibsVisible);
+        $node.children('.rightEdge').toggleClass(opts.icons.collapseToLeft, sibsVisible).toggleClass(opts.icons.expandToRight, !sibsVisible);
       }
     },
     //
@@ -755,10 +802,10 @@
         if (event.type === 'mouseenter') {
           if ($node.children('.toggleBtn').length) {
             flag = this.getNodeState($node, 'children').visible;
-            $toggleBtn.toggleClass('oci-plus-square', !flag).toggleClass('oci-minus-square', flag);
+            $toggleBtn.toggleClass(this.options.icons.collapsed, !flag).toggleClass(this.options.icons.expanded, flag);
           }
         } else {
-          $toggleBtn.removeClass('oci-plus-square oci-minus-square');
+          $toggleBtn.removeClass(`${this.options.icons.collapsed} ${this.options.icons.expanded}`);
         }
       } else {
         var $topEdge = $node.children('.topEdge');
@@ -768,17 +815,17 @@
         if (event.type === 'mouseenter') {
           if ($topEdge.length) {
             flag = this.getNodeState($node, 'parent').visible;
-            $topEdge.toggleClass('oci-chevron-up', !flag).toggleClass('oci-chevron-down', flag);
+            $topEdge.toggleClass(this.options.icons.expandToUp, !flag).toggleClass(this.options.icons.collapseToDown, flag);
           }
           if ($bottomEdge.length) {
             flag = this.getNodeState($node, 'children').visible;
-            $bottomEdge.toggleClass('oci-chevron-down', !flag).toggleClass('oci-chevron-up', flag);
+            $bottomEdge.toggleClass(this.options.icons.collapseToDown, !flag).toggleClass(this.options.icons.expandToUp, flag);
           }
           if ($leftEdge.length) {
             this.switchHorizontalArrow($node);
           }
         } else {
-          $node.children('.edge').removeClass('oci-chevron-up oci-chevron-down oci-chevron-right oci-chevron-left');
+          $node.children('.edge').removeClass(`${this.options.icons.expandToUp} ${this.options.icons.collapseToDown} ${this.options.icons.collapseToLeft} ${this.options.icons.expandToRight}`);
         }
       }
     },
@@ -787,32 +834,20 @@
       this.$chart.find('.focused').removeClass('focused');
       $(event.delegateTarget).addClass('focused');
     },
-    // load new nodes by ajax
-    loadNodes: function (rel, url, $edge) {
+    addAncestors: function (data, parentId) {
+      var $root = this.$chart.children('.nodes').children('.hierarchy');
+      this.buildHierarchy($root, data);
+      $root.children().slice(0, 2)
+        .wrapAll('<li class="hierarchy"></li>').parent()
+        .appendTo($('#' + parentId).siblings('.nodes'));
+    },
+    addDescendants:function (data, $parent) {
       var that = this;
-      var opts = this.options;
-      $.ajax({ 'url': url, 'dataType': 'json' })
-      .done(function (data) {
-        if (that.$chart.data('inAjax')) {
-          if (rel === 'parent') {
-            if (!$.isEmptyObject(data)) {
-              that.addParent($edge.parent(), data);
-            }
-          } else if (rel === 'children') {
-            if (data.children.length) {
-              that.addChildren($edge.parent(), data[rel]);
-            }
-          } else {
-            that.addSiblings($edge.parent(), data.siblings ? data.siblings : data);
-          }
-          that.triggerLoadEvent($edge.parent(), rel);
-        }
-      })
-      .fail(function () {
-        console.log('Failed to get ' + rel + ' data');
-      })
-      .always(function () {
-        that.endLoading($edge);
+      var $descendants = $('<ul class="nodes"></ul>');
+      $parent.after($descendants);
+      $.each(data, function (i) {
+        $descendants.append($('<li class="hierarchy"></li>'));
+        that.buildHierarchy($descendants.children().eq(i), this);
       });
     },
     //
@@ -826,7 +861,6 @@
     },
     // actions on clinking top edge of a node
     topEdgeClickHandler: function (event) {
-      event.stopPropagation();
       var that = this;
       var $topEdge = $(event.target);
       var $node = $(event.delegateTarget);
@@ -843,18 +877,10 @@
           this.showParent($node);
           this.triggerShowEvent($node, 'parent');
         }
-      } else { // load the new parent node of the specified node by ajax request
-        // start up loading status
-        if (this.startLoading($topEdge)) {
-          var opts = this.options;
-          var url = $.isFunction(opts.ajaxURL.parent) ? opts.ajaxURL.parent($node.data('nodeData')) : opts.ajaxURL.parent + $node[0].id;
-          this.loadNodes('parent', url, $topEdge);
-        }
       }
     },
     // actions on clinking bottom edge of a node
     bottomEdgeClickHandler: function (event) {
-      event.stopPropagation();
       var $bottomEdge = $(event.target);
       var $node = $(event.delegateTarget);
       var childrenState = this.getNodeState($node, 'children');
@@ -869,17 +895,10 @@
           this.showChildren($node);
           this.triggerShowEvent($node, 'children');
         }
-      } else { // load the new children nodes of the specified node by ajax request
-        if (this.startLoading($bottomEdge)) {
-          var opts = this.options;
-          var url = $.isFunction(opts.ajaxURL.children) ? opts.ajaxURL.children($node.data('nodeData')) : opts.ajaxURL.children + $node[0].id;
-          this.loadNodes('children', url, $bottomEdge);
-        }
       }
     },
     // actions on clicking horizontal edges
     hEdgeClickHandler: function (event) {
-      event.stopPropagation();
       var $hEdge = $(event.target);
       var $node = $(event.delegateTarget);
       var opts = this.options;
@@ -916,16 +935,23 @@
             this.triggerShowEvent($node, 'siblings');
           }
         }
-      } else {
-        // load the new sibling nodes of the specified node by ajax request
-        if (this.startLoading($hEdge)) {
-          var nodeId = $node[0].id;
-          var url = (this.getNodeState($node, 'parent').exist) ?
-            ($.isFunction(opts.ajaxURL.siblings) ? opts.ajaxURL.siblings($node.data('nodeData')) : opts.ajaxURL.siblings + nodeId) :
-            ($.isFunction(opts.ajaxURL.families) ? opts.ajaxURL.families($node.data('nodeData')) : opts.ajaxURL.families + nodeId);
-          this.loadNodes('siblings', url, $hEdge);
-        }
       }
+    },
+    // show the compact node's children in the compact mode
+    backToCompactHandler: function (event) {
+      $(event.delegateTarget).removeClass('looseMode')
+        .find('.looseMode').removeClass('looseMode')
+        .children('.backToCompactSymbol').addClass('hidden').end()
+        .children('.backToLooseSymbol').removeClass('hidden');
+      $(event.delegateTarget).children('.backToCompactSymbol').addClass('hidden').end()
+        .children('.backToLooseSymbol').removeClass('hidden');
+    },
+    // show the compact node's children in the loose mode 
+    backToLooseHandler: function (event) {
+      $(event.delegateTarget)
+        .addClass('looseMode')
+        .children('.backToLooseSymbol').addClass('hidden').end()
+        .children('.backToCompactSymbol').removeClass('hidden');
     },
     //
     expandVNodesEnd: function (event) {
@@ -942,14 +968,14 @@
       var $descendants = $descWrapper.find('.node');
       var $children = $descWrapper.children().children('.node');
       if ($children.is('.sliding')) { return; }
-      $toggleBtn.toggleClass('oci-plus-square oci-minus-square');
+      $toggleBtn.toggleClass(`${this.options.icons.collapsed} ${this.options.icons.expanded}`);
       if ($descendants.eq(0).is('.slide-up')) {
         $descWrapper.removeClass('hidden');
         this.repaint($children.get(0));
         $children.addClass('sliding').removeClass('slide-up').eq(0).one('transitionend', { 'vNodes': $children }, this.expandVNodesEnd);
       } else {
         $descendants.addClass('sliding slide-up').eq(0).one('transitionend', { 'vNodes': $descendants }, this.collapseVNodesEnd);
-        $descendants.find('.toggleBtn').removeClass('oci-minus-square').addClass('oci-plus-square');
+        $descendants.find('.toggleBtn').removeClass(`${this.options.icons.collapsed} ${this.options.icons.expanded}`);
       }
     },
     //
@@ -1006,6 +1032,40 @@
           origEvent.dataTransfer.setDragImage(ghostNode, xOffset, yOffset);
       }
     },
+    // get the level amount of a hierachy
+    getUpperLevel: function ($node) {
+      if (!$node.is('.node')) {
+        return 0;
+      }
+      return $node.parents('.hierarchy').length;
+    },
+    // get the level amount of a hierachy
+    getLowerLevel: function ($node) {
+      if (!$node.is('.node')) {
+        return 0;
+      }
+      return $node.closest('.hierarchy').find('.nodes').length + 1;
+    },
+    // get nodes in level order traversal
+    getLevelOrderNodes: function ($root) {
+      if(!$root) return [];
+      var queue = [];
+      var output = [];
+      queue.push($root);
+      while(queue.length) {
+        var row = [];
+        for(var i = 0; i < queue.length; i++) {
+            var cur = queue.shift();
+            var children = this.getChildren(cur);
+            if(children.length) {
+              queue.push(children.toArray().flat());
+            }
+            row.push($(cur));
+        }
+        output.push(row);
+      }
+      return output;
+    },
     //
     filterAllowedDropNodes: function ($dragged) {
       var opts = this.options;
@@ -1041,7 +1101,7 @@
         event.originalEvent.dataTransfer.dropEffect = 'none';
       } else {
         // default action for drag-and-drop of div is not to drop, so preventing default action for nodes which have allowedDrop class
-        //to fix drag and drop on IE and Edge		
+        //to fix drag and drop on IE and Edge
         event.preventDefault();
       }
     },
@@ -1050,7 +1110,8 @@
       this.$chart.find('.allowedDrop').removeClass('allowedDrop');
     },
     // when user drops the node, it will be removed from original parent node and be added to new parent node
-    dropHandler: function (event) {
+    dropHandler: async function (event) {
+      var that = this;
       var $dropZone = $(event.delegateTarget);
       var $dragged = this.$chart.data('dragged');
 
@@ -1059,7 +1120,7 @@
         this.$chart.triggerHandler({ 'type': 'otherdropped.orgchart', 'draggedItem': $dragged, 'dropZone': $dropZone });
         return;
       }
-      
+
       if (!$dropZone.hasClass('allowedDrop')) {
           // We are trying to drop a node into a node which isn't allowed
           // IE/Edge have a habit of allowing this, so we need our own double-check
@@ -1072,32 +1133,50 @@
       if (dropEvent.isDefaultPrevented()) {
         return;
       }
-      // firstly, deal with the hierarchy of drop zone
-      if (!$dropZone.siblings('.nodes').length) { // if the drop zone is a leaf node
-        $dropZone.append('<i class="edge verticalEdge bottomEdge oci"></i>')
-          .after('<ul class="nodes"></ul>')
-          .siblings('.nodes').append($dragged.find('.horizontalEdge').remove().end().closest('.hierarchy'));
-        if ($dropZone.children('.title').length) {
-          $dropZone.children('.title').prepend('<i class="oci '+  this.$chart.data('options').parentNodeSymbol + ' symbol"></i>');
+      // special process for hybrid chart
+      var datasource = this.$chart.data('options').data;
+      var digger = new JSONDigger(datasource, this.$chart.data('options').nodeId, 'children');
+      const hybridNode = digger.findOneNode({ 'hybrid': true });
+      if (this.$chart.data('options').verticalLevel > 1 || hybridNode) {
+        var draggedNode = digger.findNodeById($dragged.data('nodeData').id);
+        var copy = Object.assign({}, draggedNode);
+        digger.removeNode(draggedNode.id);
+        var dropNode = digger.findNodeById($dropZone.data('nodeData').id);
+        if (dropNode.children) {
+          dropNode.children.push(copy);
+        } else {
+          dropNode.children = [copy];
         }
+        that.init({ 'data': datasource });
       } else {
-        var horizontalEdges = '<i class="edge horizontalEdge rightEdge oci"></i><i class="edge horizontalEdge leftEdge oci"></i>';
-        if (!$dragged.find('.horizontalEdge').length) {
-          $dragged.append(horizontalEdges);
+        // The folowing code snippets are used to process horizontal chart
+        // firstly, deal with the hierarchy of drop zone
+        if (!$dropZone.siblings('.nodes').length) { // if the drop zone is a leaf node
+          $dropZone.append(`<i class="edge verticalEdge bottomEdge ${this.options.icons.theme}"></i>`)
+            .after('<ul class="nodes"></ul>')
+            .siblings('.nodes').append($dragged.find('.horizontalEdge').remove().end().closest('.hierarchy'));
+          if ($dropZone.children('.title').length) {
+            $dropZone.children('.title').prepend(`<i class="${this.options.icons.theme} ${this.$chart.data('options').icons.parentNode} parentNodeSymbol"></i>`);
+          }
+        } else {
+          var horizontalEdges = `<i class="edge horizontalEdge rightEdge ${this.options.icons.theme}"></i><i class="edge horizontalEdge leftEdge ${this.options.icons.theme}"></i>`;
+          if (!$dragged.find('.horizontalEdge').length) {
+            $dragged.append(horizontalEdges);
+          }
+          $dropZone.siblings('.nodes').append($dragged.closest('.hierarchy'));
+          var $dropSibs = $dragged.closest('.hierarchy').siblings().find('.node:first');
+          if ($dropSibs.length === 1) {
+            $dropSibs.append(horizontalEdges);
+          }
         }
-        $dropZone.siblings('.nodes').append($dragged.closest('.hierarchy'));
-        var $dropSibs = $dragged.closest('.hierarchy').siblings().find('.node:first');
-        if ($dropSibs.length === 1) {
-          $dropSibs.append(horizontalEdges);
+        // secondly, deal with the hierarchy of dragged node
+        if ($dragZone.siblings('.nodes').children('.hierarchy').length === 1) { // if there is only one sibling node left
+          $dragZone.siblings('.nodes').children('.hierarchy').find('.node:first')
+            .find('.horizontalEdge').remove();
+        } else if ($dragZone.siblings('.nodes').children('.hierarchy').length === 0) {
+          $dragZone.find('.bottomEdge, .parentNodeSymbol').remove()
+            .end().siblings('.nodes').remove();
         }
-      }
-      // secondly, deal with the hierarchy of dragged node
-      if ($dragZone.siblings('.nodes').children('.hierarchy').length === 1) { // if there is only one sibling node left
-        $dragZone.siblings('.nodes').children('.hierarchy').find('.node:first')
-          .find('.horizontalEdge').remove();
-      } else if ($dragZone.siblings('.nodes').children('.hierarchy').length === 0) {
-        $dragZone.find('.bottomEdge, .symbol').remove()
-          .end().siblings('.nodes').remove();
       }
     },
     //
@@ -1279,24 +1358,39 @@
       var nodeData = $.extend({}, data);
       delete nodeData.children;
       $nodeDiv.data('nodeData', nodeData);
-      // append 4 direction arrows or expand/collapse buttons
+      // append 4 direction arrows or expand/collapse buttons or reset buttons
       var flags = data.relationship || '';
-      if (opts.verticalLevel && level >= opts.verticalLevel) {
-        if ((level + 1) > opts.verticalLevel && Number(flags.substr(2,1))) {
-          $nodeDiv.append('<i class="toggleBtn oci"></i>')
-            .children('.title').prepend('<i class="oci '+ opts.parentNodeSymbol + ' symbol"></i>');
+      if ((opts.verticalLevel && level >= opts.verticalLevel) || data.vertical) {
+        if (Number(flags.substr(2,1))) {
+          $nodeDiv.append(`<i class="toggleBtn ${opts.icons.theme}"></i>`)
+            .children('.title').prepend(`<i class="${opts.icons.theme} ${opts.icons.parentNode} parentNodeSymbol"></i>`);
         }
+      } else if (data.hybrid) {
+        if (Number(flags.substr(2,1))) {
+          $nodeDiv.append(`<i class="edge verticalEdge bottomEdge ${opts.icons.theme}"></i>`)
+            .children('.title').prepend(`<i class="${opts.icons.theme} ${opts.icons.parentNode} parentNodeSymbol"></i>`);
+        }
+      } else if (data.compact) {
+        $nodeDiv.css('grid-template-columns', `repeat(${Math.floor(Math.sqrt(data.children.length + 1))}, auto)`);
+        if (Number(flags.substr(2,1))) {
+          $nodeDiv.append(`
+            <i class="${opts.icons.theme} ${opts.icons.backToCompact} backToCompactSymbol hidden"></i>
+            <i class="${opts.icons.theme} ${opts.icons.backToLoose} backToLooseSymbol"></i>
+            `)
+            .children('.title').prepend(`<i class="${opts.icons.theme} ${opts.icons.parentNode} parentNodeSymbol"></i>`);
+        }
+      } else if (data.associatedCompact) {
+   
       } else {
         if (Number(flags.substr(0,1))) {
-          $nodeDiv.append('<i class="edge verticalEdge topEdge oci"></i>');
+          $nodeDiv.append(`<i class="edge verticalEdge topEdge ${opts.icons.theme}"></i>`);
         }
         if(Number(flags.substr(1,1))) {
-          $nodeDiv.append('<i class="edge horizontalEdge rightEdge oci"></i>' +
-            '<i class="edge horizontalEdge leftEdge oci"></i>');
+          $nodeDiv.append(`<i class="edge horizontalEdge rightEdge ${opts.icons.theme}"></i><i class="edge horizontalEdge leftEdge ${opts.icons.theme}"></i>`);
         }
         if(Number(flags.substr(2,1))) {
-          $nodeDiv.append('<i class="edge verticalEdge bottomEdge oci"></i>')
-            .children('.title').prepend('<i class="oci '+ opts.parentNodeSymbol + ' symbol"></i>');
+          $nodeDiv.append(`<i class="edge verticalEdge bottomEdge ${opts.icons.theme}"></i>`)
+            .children('.title').prepend(`<i class="${opts.icons.theme} ${opts.icons.parentNode} parentNodeSymbol"></i>`);
         }
       }
 
@@ -1306,6 +1400,8 @@
       $nodeDiv.on('click', '.bottomEdge', this.bottomEdgeClickHandler.bind(this));
       $nodeDiv.on('click', '.leftEdge, .rightEdge', this.hEdgeClickHandler.bind(this));
       $nodeDiv.on('click', '.toggleBtn', this.toggleVNodes.bind(this));
+      $nodeDiv.on('click', '> .backToCompactSymbol',this.backToCompactHandler.bind(this));
+      $nodeDiv.on('click', '> .backToLooseSymbol',this.backToLooseHandler.bind(this));
 
       if (opts.draggable) {
         this.bindDragDrop($nodeDiv);
@@ -1325,6 +1421,7 @@
       var that = this;
       var opts = this.options;
       var level = 0;
+      var $nodeDiv;
       if (data.level) {
         level = data.level;
       } else {
@@ -1332,28 +1429,26 @@
       }
       // Construct the node
       if (Object.keys(data).length > 2) {
-        var $nodeDiv = this.createNode(data);
-        if (opts.verticalLevel && level >= opts.verticalLevel) {
-          $appendTo.append($nodeDiv);
-        } else {
-          $appendTo.append($nodeDiv);
-        }
+        $nodeDiv = this.createNode(data);
+        $appendTo.append($nodeDiv);
       }
       // Construct the "inferior nodes"
       if (data.children && data.children.length) {
         var isHidden = level + 1 > opts.visibleLevel || (data.collapsed !== undefined && data.collapsed);
-        var isVerticalLayer = opts.verticalLevel && (level + 1) >= opts.verticalLevel;
         var $nodesLayer;
-        if (isVerticalLayer) {
+        if ((opts.verticalLevel && (level + 1) >= opts.verticalLevel) || data.hybrid) {
           $nodesLayer = $('<ul class="nodes">');
-          if (isHidden && level + 1 >= opts.verticalLevel) {
+          if (isHidden && (opts.verticalLevel && (level + 1) >= opts.verticalLevel)) {
             $nodesLayer.addClass('hidden');
           }
-          if (level + 1 === opts.verticalLevel) {
-            $appendTo.addClass('hybrid').append($nodesLayer.addClass('vertical'));
+          if (((opts.verticalLevel && level + 1 === opts.verticalLevel) || data.hybrid)
+            && !$appendTo.closest('.vertical').length) {
+              $appendTo.append($nodesLayer.addClass('vertical'));
           } else {
             $appendTo.append($nodesLayer);
           }
+        } else if (data.compact) {
+          $nodeDiv.addClass('compact');
         } else {
           $nodesLayer = $('<ul class="nodes' + (isHidden ? ' hidden' : '') + '">');
           if (Object.keys(data).length === 2) {
@@ -1367,10 +1462,14 @@
         }
         // recurse through children nodes
         $.each(data.children, function () {
-          var $nodeCell = $('<li class="hierarchy">');
-          $nodesLayer.append($nodeCell);
           this.level = level + 1;
-          that.buildHierarchy($nodeCell, this);
+          if (data.compact) {
+            that.buildHierarchy($nodeDiv, this);
+          } else {
+            var $nodeCell = $('<li class="hierarchy">');
+            $nodesLayer.append($nodeCell);
+            that.buildHierarchy($nodeCell, this);
+          }
         });
       }
     },
@@ -1381,16 +1480,16 @@
     // exposed method
     addChildren: function ($node, data) {
       this.buildChildNode($node.closest('.hierarchy'), data);
-      if (!$node.find('.symbol').length) {
-        $node.children('.title').prepend('<i class="oci '+ this.options.parentNodeSymbol + ' symbol"></i>');
+      if (!$node.find('.parentNodeSymbol').length) {
+        $node.children('.title').prepend(`<i class="${this.options.icons.theme} ${this.options.icons.parentNode} parentNodeSymbol"></i>`);
       }
       if ($node.closest('.nodes.vertical').length) {
         if (!$node.children('.toggleBtn').length) {
-          $node.append('<i class="toggleBtn oci"></i>');
+          $node.append(`<i class="toggleBtn ${this.options.icons.theme}"></i>`);
         }
       } else {
         if (!$node.children('.bottomEdge').length) {
-          $node.append('<i class="edge verticalEdge bottomEdge oci"></i>');
+          $node.append(`<i class="edge verticalEdge bottomEdge ${this.options.icons.theme}"></i>`);
         }
       }
       if (this.isInAction($node)) {
@@ -1409,7 +1508,7 @@
     addParent: function ($currentRoot, data) {
       this.buildParentNode($currentRoot, data);
       if (!$currentRoot.children('.topEdge').length) {
-        $currentRoot.children('.title').after('<i class="edge verticalEdge topEdge oci"></i>');
+        $currentRoot.children('.title').after(`<i class="edge verticalEdge topEdge ${this.options.icons.theme}"></i>`);
       }
       if (this.isInAction($currentRoot)) {
         this.switchVerticalArrow($currentRoot.children('.topEdge'));
@@ -1440,11 +1539,11 @@
       this.buildSiblingNode($node.closest('.hierarchy'), data);
       $node.closest('.nodes').data('siblingsLoaded', true);
       if (!$node.children('.leftEdge').length) {
-        $node.children('.topEdge').after('<i class="edge horizontalEdge rightEdge oci"></i><i class="edge horizontalEdge leftEdge oci"></i>');
+        $node.children('.topEdge').after(`<i class="edge horizontalEdge rightEdge ${this.options.icons.theme}"></i><i class="edge horizontalEdge leftEdge ${this.options.icons.theme}"></i>`);
       }
       if (this.isInAction($node)) {
         this.switchHorizontalArrow($node);
-        $node.children('.topEdge').removeClass('oci-chevron-up').addClass('oci-chevron-down');
+        $node.children('.topEdge').removeClass(this.options.icons.expandToUp).addClass(this.options.icons.collapseToDown);
       }
     },
     // remove node and its descendent nodes
@@ -1529,10 +1628,10 @@
       if ((!isWebkit && !isFf) || isEdge) {
         window.navigator.msSaveBlob(canvas.msToBlob(), exportFilename + '.png');
       } else {
-        var selector = '.oci-download-btn' + (that.options.chartClass !== '' ? '.' + that.options.chartClass : '');
+        var selector = '.download-btn' + (that.options.chartClass !== '' ? '.' + that.options.chartClass : '');
 
         if (!$chartContainer.find(selector).length) {
-          $chartContainer.append('<a class="oci-download-btn' + (that.options.chartClass !== '' ? ' ' + that.options.chartClass : '') + '"'
+          $chartContainer.append('<a class="download-btn' + (that.options.chartClass !== '' ? ' ' + that.options.chartClass : '') + '"'
                                  + ' download="' + exportFilename + '.png"></a>');
         }
 
@@ -1550,7 +1649,7 @@
       var $chartContainer = this.$chartContainer;
       var $mask = $chartContainer.find('.mask');
       if (!$mask.length) {
-        $chartContainer.append('<div class="mask"><i class="oci oci-spinner spinner"></i></div>');
+        $chartContainer.append(`<div class="mask"><i class="${this.options.icons.theme} ${this.options.icons.spinner} spinner"></i></div>`);
       } else {
         $mask.removeClass('hidden');
       }
